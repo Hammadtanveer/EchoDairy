@@ -68,6 +68,12 @@ fun RecordScreen(paddingValues: PaddingValues, vm: RecordViewModel) {
             placeholder = { Text(text = "Type for now. Speech-to-text comes next.") }
         )
 
+        LanguagePicker(
+            languages = state.languages,
+            selectedTag = state.languageTag,
+            onSelect = vm::onLanguageChanged
+        )
+
         MoodChips(selected = state.mood, onSelect = vm::onMoodChanged)
 
         if (state.error != null) {

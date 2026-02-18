@@ -6,16 +6,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.echodairy.data.JournalEntry
 import com.example.echodairy.data.Mood
+import com.example.echodairy.vm.SpeechLanguage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,6 +56,34 @@ fun EntryCard(entry: JournalEntry, onClick: () -> Unit) {
             Text(text = formatDate(entry.createdAtEpochMs), style = MaterialTheme.typography.titleSmall)
             Text(text = "Mood: ${entry.mood}", style = MaterialTheme.typography.labelMedium)
             Text(text = entry.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+fun LanguagePicker(
+    languages: List<SpeechLanguage>,
+    selectedTag: String,
+    onSelect: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = languages.firstOrNull { it.tag == selectedTag }?.label ?: "Language"
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(text = "Recognition language", style = MaterialTheme.typography.labelMedium)
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(text = selectedLabel)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            languages.forEach { lang ->
+                DropdownMenuItem(
+                    text = { Text(text = lang.label) },
+                    onClick = {
+                        expanded = false
+                        onSelect(lang.tag)
+                    }
+                )
+            }
         }
     }
 }

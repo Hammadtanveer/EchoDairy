@@ -10,6 +10,7 @@ import com.example.echodairy.data.JournalRepository
 import com.example.echodairy.data.Mood
 import com.example.echodairy.data.TextCleaner
 import com.example.echodairy.speech.SpeechRecognizerController
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -24,7 +25,20 @@ data class RecordUiState(
     val isListening: Boolean = false,
     val partialTranscript: String = "",
     val speechError: String? = null,
-    val canListen: Boolean = true
+    val canListen: Boolean = true,
+    val languages: List<SpeechLanguage> = emptyList(),
+    val languageTag: String = ""
+)
+
+data class SpeechLanguage(val label: String, val tag: String)
+
+private fun buildLanguages(defaultTag: String): List<SpeechLanguage> = listOf(
+    SpeechLanguage("Device default", defaultTag),
+    SpeechLanguage("English (US)", "en-US"),
+    SpeechLanguage("English (India)", "en-IN"),
+    SpeechLanguage("Hindi (India)", "hi-IN"),
+    SpeechLanguage("Tamil (India)", "ta-IN"),
+    SpeechLanguage("Telugu (India)", "te-IN")
 )
 
 class RecordViewModel(
@@ -36,10 +50,17 @@ class RecordViewModel(
     val state: StateFlow<RecordUiState> = _state
 
     private var controller: SpeechRecognizerController? = null
+    private val languageOptions = buildLanguages(Locale.getDefault().toLanguageTag())
 
     init {
         val available = SpeechRecognizer.isRecognitionAvailable(getApplication())
-        _state.update { it.copy(canListen = available) }
+        _state.update {
+            it.copy(
+                canListen = available,
+                languages = languageOptions,
+                languageTag = languageOptions.firstOrNull()?.tag.orEmpty()
+            )
+        }
     }
 
     fun onTextChanged(value: String) {
@@ -50,6 +71,10 @@ class RecordViewModel(
         _state.update { it.copy(mood = value, saved = false) }
     }
 
+    fun onLanguageChanged(tag: String) {
+        _state.update { it.copy(languageTag = tag) }
+    }
+
     fun startListening() {
         if (!_state.value.canListen) {
             _state.update { it.copy(speechError = "Speech recognition unavailable.") }
@@ -57,7 +82,7 @@ class RecordViewModel(
         }
         ensureController()
         _state.update { it.copy(speechError = null, partialTranscript = "") }
-        controller?.start()
+        controller?.start(_state.value.languageTag)
     }
 
     fun stopListening() {

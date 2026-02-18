@@ -11,7 +11,7 @@ import java.util.Locale
 class SpeechRecognizerController(
     private val context: Context,
     private val callbacks: Callbacks,
-    private val languageTag: String = Locale.getDefault().toLanguageTag()
+    private val defaultLanguageTag: String = Locale.getDefault().toLanguageTag()
 ) {
     data class Callbacks(
         val onPartial: (String) -> Unit,
@@ -57,13 +57,14 @@ class SpeechRecognizerController(
 
     fun isAvailable(): Boolean = SpeechRecognizer.isRecognitionAvailable(context)
 
-    fun start() {
+    fun start(languageTag: String? = null) {
         if (isListening) return
         isListening = true
+        val resolvedTag = languageTag?.takeIf { it.isNotBlank() } ?: defaultLanguageTag
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, languageTag)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, resolvedTag)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, resolvedTag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
