@@ -1,5 +1,9 @@
 package com.example.echodairy.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,7 +11,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -16,12 +28,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.echodairy.vm.RecordViewModel
+import androidx.core.content.ContextCompat
 
 @Composable
 fun RecordScreen(paddingValues: PaddingValues, vm: RecordViewModel) {
     val state by vm.state.collectAsState()
+    val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) vm.startListening() else vm.onMicPermissionDenied()
+    }
 
     LaunchedEffect(state.saved) {
         if (state.saved) vm.consumeSaved()
@@ -55,6 +76,43 @@ fun RecordScreen(paddingValues: PaddingValues, vm: RecordViewModel) {
             Text(text = "Saved.", color = MaterialTheme.colorScheme.primary)
         }
 
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(
+                onClick = {
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (granted) {
+                        if (state.isListening) vm.stopListening() else vm.startListening()
+                    } else {
+                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = if (state.isListening) Icons.Default.Stop else Icons.Default.Mic,
+                    contentDescription = if (state.isListening) "Stop" else "Mic"
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = if (state.isListening) "Stop" else "Talk")
+            }
+
+            if (!state.canListen) {
+                Text(text = "Speech recognition unavailable.", color = MaterialTheme.colorScheme.error)
+            }
+        }
+
+        if (state.isListening) {
+            Text(text = "Listening...", color = MaterialTheme.colorScheme.primary)
+        }
+        if (state.partialTranscript.isNotBlank()) {
+            Text(text = "Heard: ${state.partialTranscript}", style = MaterialTheme.typography.bodySmall)
+        }
+        if (state.speechError != null) {
+            Text(text = state.speechError ?: "", color = MaterialTheme.colorScheme.error)
+        }
+
         Button(
             onClick = vm::save,
             enabled = !state.isSaving,
@@ -64,4 +122,3 @@ fun RecordScreen(paddingValues: PaddingValues, vm: RecordViewModel) {
         }
     }
 }
-

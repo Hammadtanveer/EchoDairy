@@ -1,10 +1,15 @@
 package com.example.echodairy.vm
 
+import android.app.Application
+import android.speech.SpeechRecognizer
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.echodairy.data.JournalRepository
 import com.example.echodairy.data.Mood
+import com.example.echodairy.data.TextCleaner
+import com.example.echodairy.speech.SpeechRecognizerController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -15,22 +20,56 @@ data class RecordUiState(
     val mood: Mood = Mood.NEUTRAL,
     val isSaving: Boolean = false,
     val error: String? = null,
-    val saved: Boolean = false
+    val saved: Boolean = false,
+    val isListening: Boolean = false,
+    val partialTranscript: String = "",
+    val speechError: String? = null,
+    val canListen: Boolean = true
 )
 
 class RecordViewModel(
+    application: Application,
     private val repository: JournalRepository
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
     private val _state = MutableStateFlow(RecordUiState())
     val state: StateFlow<RecordUiState> = _state
 
+    private var controller: SpeechRecognizerController? = null
+
+    init {
+        val available = SpeechRecognizer.isRecognitionAvailable(getApplication())
+        _state.update { it.copy(canListen = available) }
+    }
+
     fun onTextChanged(value: String) {
-        _state.update { it.copy(text = value, error = null, saved = false) }
+        _state.update { it.copy(text = value, error = null, saved = false, speechError = null) }
     }
 
     fun onMoodChanged(value: Mood) {
         _state.update { it.copy(mood = value, saved = false) }
+    }
+
+    fun startListening() {
+        if (!_state.value.canListen) {
+            _state.update { it.copy(speechError = "Speech recognition unavailable.") }
+            return
+        }
+        ensureController()
+        _state.update { it.copy(speechError = null, partialTranscript = "") }
+        controller?.start()
+    }
+
+    fun stopListening() {
+        controller?.stop()
+    }
+
+    fun cancelListening() {
+        controller?.cancel()
+    }
+
+    fun onMicPermissionDenied() {
+        _state.update { it.copy(speechError = "Mic permission is required.") }
     }
 
     fun save() {
@@ -55,13 +94,43 @@ class RecordViewModel(
     fun consumeSaved() {
         _state.update { it.copy(saved = false) }
     }
-}
 
-class RecordViewModelFactory(
-    private val repository: JournalRepository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return RecordViewModel(repository) as T
+    override fun onCleared() {
+        controller?.destroy()
+        controller = null
+        super.onCleared()
+    }
+
+    private fun ensureController() {
+        if (controller != null) return
+        controller = SpeechRecognizerController(
+            context = getApplication(),
+            callbacks = SpeechRecognizerController.Callbacks(
+                onPartial = { text ->
+                    _state.update { it.copy(partialTranscript = TextCleaner.normalize(text)) }
+                },
+                onFinal = { text ->
+                    _state.update { current ->
+                        val combined = TextCleaner.appendFinal(current.text, text)
+                        current.copy(text = combined, partialTranscript = "")
+                    }
+                },
+                onError = { message ->
+                    _state.update { it.copy(speechError = message, isListening = false) }
+                },
+                onListeningChanged = { listening ->
+                    _state.update { it.copy(isListening = listening) }
+                }
+            )
+        )
     }
 }
 
+class RecordViewModelFactory(
+    private val application: Application,
+    private val repository: JournalRepository
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        return RecordViewModel(application, repository) as T
+    }
+}

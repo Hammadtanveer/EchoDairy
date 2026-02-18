@@ -1,5 +1,6 @@
 package com.example.echodairy
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.echodairy.data.AppDatabase
 import com.example.echodairy.data.JournalRepository
@@ -59,7 +61,10 @@ private enum class RootTab { Record, History }
 private fun EchoDiaryApp(repository: JournalRepository) {
     var tab by remember { mutableStateOf(RootTab.Record) }
 
-    val recordVm: RecordViewModel = viewModel(factory = RecordViewModelFactory(repository))
+    val application = LocalContext.current.applicationContext as Application
+    val recordVm: RecordViewModel = viewModel(
+        factory = RecordViewModelFactory(application = application, repository = repository)
+    )
     val historyVm: HistoryViewModel = viewModel(factory = HistoryViewModelFactory(repository))
 
     Scaffold(
