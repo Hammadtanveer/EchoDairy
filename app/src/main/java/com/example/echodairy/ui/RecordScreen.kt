@@ -65,7 +65,7 @@ fun RecordScreen(paddingValues: PaddingValues, vm: RecordViewModel) {
             onValueChange = vm::onTextChanged,
             modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
             label = { Text(text = "Today's entry") },
-            placeholder = { Text(text = "Type for now. Speech-to-text comes next.") }
+            placeholder = { Text(text = "Speak or type to build your journal.") }
         )
 
         LanguagePicker(
@@ -108,6 +108,12 @@ fun RecordScreen(paddingValues: PaddingValues, vm: RecordViewModel) {
                 Text(text = "Speech recognition unavailable.", color = MaterialTheme.colorScheme.error)
             }
         }
+
+        MicWaveform(
+            rmsDb = state.rmsDb,
+            isListening = state.isListening,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 20.dp)
+        )
 
         if (state.isListening) {
             Text(text = "Listening...", color = MaterialTheme.colorScheme.primary)
