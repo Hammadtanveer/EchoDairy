@@ -27,7 +27,8 @@ data class RecordUiState(
     val speechError: String? = null,
     val canListen: Boolean = true,
     val languages: List<SpeechLanguage> = emptyList(),
-    val languageTag: String = ""
+    val languageTag: String = "",
+    val rmsDb: Float = 0f
 )
 
 data class SpeechLanguage(val label: String, val tag: String)
@@ -136,15 +137,18 @@ class RecordViewModel(
                 },
                 onFinal = { text ->
                     _state.update { current ->
-                        val combined = TextCleaner.appendFinal(current.text, text)
+                        val combined = TextCleaner.mergeFinal(current.text, current.partialTranscript, text)
                         current.copy(text = combined, partialTranscript = "")
                     }
                 },
                 onError = { message ->
-                    _state.update { it.copy(speechError = message, isListening = false) }
+                    _state.update { it.copy(speechError = message, isListening = false, rmsDb = 0f) }
                 },
                 onListeningChanged = { listening ->
-                    _state.update { it.copy(isListening = listening) }
+                    _state.update { it.copy(isListening = listening, rmsDb = if (listening) it.rmsDb else 0f) }
+                },
+                onRmsChanged = { rms ->
+                    _state.update { it.copy(rmsDb = rms) }
                 }
             )
         )
